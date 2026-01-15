@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>会议议程生成器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gray: {
+                            50: '#f9fafb',
+                            100: '#f3f4f6',
+                            200: '#e5e7eb',
+                            300: '#d1d5db',
+                            400: '#9ca3af',
+                            500: '#6b7280',
+                            600: '#4b5563',
+                            700: '#374151',
+                            800: '#1f2937',
+                            900: '#111827',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @media print {
+            body {
+                background-color: white;
+                margin: 0;
+                padding: 0;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-container {
+                box-shadow: none !important;
+                border: none !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            /* Ensure the print content uses the full page */
+            #previewCard {
+                min-height: auto;
+                box-shadow: none !important;
+                border: none !important;
+            }
+        }
+        
+        .speaker-content {
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+
+    <div class="max-w-7xl mx-auto p-4 md:p-8">
+        
+        <!-- Header for Web View -->
+        <header class="mb-8 text-center no-print">
+            <h1 class="text-3xl font-bold text-gray-900">会议议程生成器</h1>
+            <p class="text-gray-500 mt-2">输入会议信息，自动生成标准格式议程表（数据自动保存）</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- EDITOR SECTION (Left Side) -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden no-print border border-gray-200 flex flex-col h-fit">
+                <div class="p-6 bg-gray-50 border-b border-gray-200 flex justify-between items-center flex-wrap gap-4">
+                    <h2 class="text-lg font-bold text-gray-700">✏️ 信息录入</h2>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="clearData()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium transition cursor-pointer" title="清空所有内容">
+                            重置
+                        </button>
+                        <button id="btn-poster" onclick="generatePoster()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            生成图片
+                        </button>
+                        <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                            打印 / PDF
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="p-6 space-y-6">
+                    <!-- Basic Info -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">会议名称</label>
+                            <input type="text" id="inputName" class="w-full rounded-lg border-gray-300 border p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="例如：第十次学习研讨会" oninput="handleInput()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">时间</label>
+                            <input type="text" id="inputTime" class="w-full rounded-lg border-gray-300 border p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="2023年10月27日 14:00" oninput="handleInput()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">地点</label>
+                            <input type="text" id="inputLocation" class="w-full rounded-lg border-gray-300 border p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="第一会议室" oninput="handleInput()">
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">主持人</label>
+                            <input type="text" id="inputHost" class="w-full rounded-lg border-gray-300 border p-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="主持人姓名" oninput="handleInput()">
+                        </div>
+                    </div>
+
+                    <!-- Speakers Section -->
+                    <div class="border-t border-gray-100 pt-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <label class="block text-sm font-bold text-gray-700">报告人及内容列表</label>
+                            <button onclick="addSpeaker()" class="text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded font-medium transition cursor-pointer">+ 添加下一位</button>
+                        </div>
+                        <div id="speakerInputs" class="space-y-4">
+                            <!-- JS will populate this -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PREVIEW SECTION (Right Side) -->
+            <div class="print-container">
+                <div id="previewCard" class="bg-white rounded-xl shadow-lg min-h-[800px] flex flex-col relative border border-gray-100 mx-auto overflow-hidden">
+                    
+                    <!-- Meeting Header (Pale Yellow) -->
+                    <div class="bg-yellow-50 p-8 md:p-12 text-center border-b border-yellow-100">
+                        <h1 id="previewName" class="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-6">会议名称预览</h1>
+                        
+                        <div class="flex flex-wrap justify-center gap-x-8 gap-y-2 text-gray-700 font-medium text-base md:text-lg">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-gray-900">时间：</span>
+                                <span id="previewTime">____</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-gray-900">地点：</span>
+                                <span id="previewLocation">____</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-gray-900">主持人：</span>
+                                <span id="previewHost">____</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Agenda Content (Pale Blue) -->
+                    <div class="flex-grow bg-blue-50 p-8 md:p-12">
+                        <h3 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                            <span class="w-1.5 h-6 bg-gray-900 mr-2 rounded-full"></span>
+                            报告流程
+                        </h3>
+                        
+                        <div id="previewSpeakers" class="space-y-6 pl-2">
+                            <!-- Preview Content Goes Here -->
+                            <p class="text-gray-400 italic">请在左侧添加报告人...</p>
+                        </div>
+                    </div>
+
+                    <!-- Footer Notes (Pink) -->
+                    <div class="bg-pink-50 p-8 md:p-12 border-t border-pink-100">
+                        <h4 class="font-bold text-gray-900 mb-3 text-lg">注意事项：</h4>
+                        <div class="text-gray-700 space-y-2 text-base leading-relaxed">
+                            <p>1. 须提前充分准备，讲考时长原则上不超过15分钟；</p>
+                            <p>2. 提问与分享法义，须围绕当下学习内容紧扣主题；</p>
+                            <p>3. 主持人应把控好时间，一般情况下上午11:30，晚上10:00前结束。</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // State
+        let speakers = [
+            { id: 1, name: '', content: '' }
+        ];
+
+        // Constants
+        const STORAGE_KEY = 'meeting_agenda_data';
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            init();
+        });
+
+        function init() {
+            loadData();
+            renderSpeakerInputs();
+            updatePreview();
+        }
+
+        // Load Data from LocalStorage
+        function loadData() {
+            try {
+                const savedData = localStorage.getItem(STORAGE_KEY);
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    
+                    // Restore basic info
+                    if (data.name) document.getElementById('inputName').value = data.name;
+                    if (data.time) document.getElementById('inputTime').value = data.time;
+                    if (data.location) document.getElementById('inputLocation').value = data.location;
+                    if (data.host) document.getElementById('inputHost').value = data.host;
+                    
+                    // Restore speakers
+                    if (data.speakers && Array.isArray(data.speakers) && data.speakers.length > 0) {
+                        speakers = data.speakers;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load data:', e);
+            }
+        }
+
+        // Save Data to LocalStorage
+        function saveData() {
+            try {
+                const data = {
+                    name: document.getElementById('inputName').value,
+                    time: document.getElementById('inputTime').value,
+                    location: document.getElementById('inputLocation').value,
+                    host: document.getElementById('inputHost').value,
+                    speakers: speakers
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            } catch (e) {
+                console.error('Failed to save data:', e);
+            }
+        }
+
+        // Clear Data
+        function clearData() {
+            if (confirm('确定要清空所有内容吗？此操作无法撤销。')) {
+                localStorage.removeItem(STORAGE_KEY);
+                speakers = [{ id: 1, name: '', content: '' }];
+                document.getElementById('inputName').value = '';
+                document.getElementById('inputTime').value = '';
+                document.getElementById('inputLocation').value = '';
+                document.getElementById('inputHost').value = '';
+                renderSpeakerInputs();
+                updatePreview();
+            }
+        }
+
+        // Handle Input Changes
+        function handleInput() {
+            updatePreview();
+            saveData();
+        }
+
+        // Render Inputs
+        function renderSpeakerInputs() {
+            const container = document.getElementById('speakerInputs');
+            container.innerHTML = '';
+
+            speakers.forEach((speaker, index) => {
+                const div = document.createElement('div');
+                div.className = 'bg-gray-50 p-4 rounded-lg border border-gray-200 relative group transition hover:shadow-sm hover:border-blue-200';
+                div.innerHTML = `
+                    <div class="grid grid-cols-12 gap-3">
+                        <div class="col-span-1 flex items-center justify-center">
+                             <span class="bg-gray-200 text-gray-600 font-bold rounded-full w-6 h-6 flex items-center justify-center text-xs">${index + 1}</span>
+                        </div>
+                        <div class="col-span-11 md:col-span-4">
+                            <input type="text" 
+                                placeholder="报告人姓名" 
+                                class="w-full bg-white border border-gray-300 rounded p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                                value="${speaker.name}"
+                                oninput="updateSpeaker(${speaker.id}, 'name', this.value)"
+                            >
+                        </div>
+                        <div class="col-span-12 md:col-span-7 pl-0 md:pl-2">
+                            <textarea 
+                                placeholder="报告内容 / 主题" 
+                                class="w-full bg-white border border-gray-300 rounded p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                                rows="2"
+                                oninput="updateSpeaker(${speaker.id}, 'content', this.value)"
+                            >${speaker.content}</textarea>
+                        </div>
+                    </div>
+                    ${speakers.length > 1 ? `
+                    <button onclick="removeSpeaker(${speaker.id})" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition p-1 cursor-pointer" title="删除">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                    ` : ''}
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Add Speaker
+        function addSpeaker() {
+            const newId = speakers.length > 0 ? Math.max(...speakers.map(s => s.id)) + 1 : 1;
+            speakers.push({ id: newId, name: '', content: '' });
+            renderSpeakerInputs();
+            updatePreview();
+            saveData();
+        }
+
+        // Remove Speaker
+        function removeSpeaker(id) {
+            speakers = speakers.filter(s => s.id !== id);
+            renderSpeakerInputs();
+            updatePreview();
+            saveData();
+        }
+
+        // Update Speaker Data
+        function updateSpeaker(id, field, value) {
+            const speaker = speakers.find(s => s.id === id);
+            if (speaker) {
+                speaker[field] = value;
+                updatePreview(); // Update UI
+                saveData(); // Save immediately
+            }
+        }
+
+        // Update Preview
+        function updatePreview() {
+            // Meta Data
+            const name = document.getElementById('inputName').value;
+            const time = document.getElementById('inputTime').value;
+            const loc = document.getElementById('inputLocation').value;
+            const host = document.getElementById('inputHost').value;
+
+            document.getElementById('previewName').innerText = name || '会议名称预览';
+            document.getElementById('previewTime').innerText = time || '____';
+            document.getElementById('previewLocation').innerText = loc || '____';
+            document.getElementById('previewHost').innerText = host || '____';
+
+            // Speakers
+            const speakersContainer = document.getElementById('previewSpeakers');
+            if (speakers.length === 0 || (speakers.length === 1 && !speakers[0].name && !speakers[0].content)) {
+                speakersContainer.innerHTML = '<p class="text-gray-400 italic pl-4">在此处显示报告列表...</p>';
+            } else {
+                speakersContainer.innerHTML = speakers.map((s, i) => `
+                    <div class="flex gap-4 items-start">
+                        <div class="flex-shrink-0 flex items-center justify-center font-bold text-3xl text-red-600 mt-1 w-10">
+                            ${i + 1}.
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex flex-col md:flex-row md:items-baseline gap-2 mb-1">
+                                <span class="font-bold text-xl text-red-600">${s.name || '姓名'}</span>
+                            </div>
+                            <div class="speaker-content text-gray-700 leading-relaxed">${s.content || '暂无内容'}</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Generate Poster Function
+        function generatePoster() {
+            const element = document.getElementById('previewCard');
+            const btn = document.getElementById('btn-poster');
+            const originalContent = btn.innerHTML;
+            
+            // Set Loading State
+            btn.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                生成中...
+            `;
+            btn.disabled = true;
+
+            // Small delay to ensure render
+            setTimeout(() => {
+                // Use higher scale for better quality
+                const scale = 2; 
+
+                html2canvas(element, {
+                    scale: scale,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff', // Force white background
+                    logging: false,
+                    onclone: (clonedDoc) => {
+                        const clonedElement = clonedDoc.getElementById('previewCard');
+                        if (clonedElement) {
+                            // Ensure proper display properties
+                            clonedElement.style.display = 'block';
+                            // Reset margins for the clone to avoid whitespace issues
+                            clonedElement.style.margin = '0';
+                            clonedElement.style.height = 'auto';
+                        }
+                    }
+                }).then(canvas => {
+                    // Create download link
+                    try {
+                        const link = document.createElement('a');
+                        link.download = '会议议程海报.png';
+                        link.href = canvas.toDataURL('image/png');
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    } catch (err) {
+                        console.error('Download failed:', err);
+                        alert('图片生成成功但下载失败，请尝试长按或右键保存');
+                    }
+                    
+                    // Reset Button
+                    btn.innerHTML = originalContent;
+                    btn.disabled = false;
+                }).catch(err => {
+                    console.error('Poster generation failed:', err);
+                    alert('生成海报失败: ' + (err.message || '未知错误'));
+                    btn.innerHTML = originalContent;
+                    btn.disabled = false;
+                });
+            }, 300);
+        }
+
+        // Start via DOMContentLoaded above
+    </script>
+</body>
+</html>
